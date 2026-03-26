@@ -1,0 +1,102 @@
+# Dependencies
+node_modules/
+
+# Environment Variables
+.env
+.env.*
+client/.env
+client/.env.*
+server/.env
+server/.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.backup
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+debug_log.txt
+build_log.txt
+test_build_log.txt
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Build output
+dist/
+build/
+.next/
+out/
+dist-ssr/
+
+# Coverage / Testing
+lib-cov/
+coverage/
+*.lcov
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+.history/
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*~
+.directory
+.Trash-*
+
+# Temp files
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~.nib
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# SSL Certificates
+*.pem
+*.key
+*.crt
+*.cert
+
+
+# Misc
+.sass-cache/
+.cache/
+*.tgz
+.eslintcache
+.node_repl_history
+.yarn-integrity
+yarn.lock

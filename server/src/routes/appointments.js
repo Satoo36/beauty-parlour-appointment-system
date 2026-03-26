@@ -4,7 +4,7 @@ import { protect, authorize } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.get("/stats", protect, authorize('admin', 'staff'), getAppointmentStats);
+router.get("/stats", protect, getAppointmentStats);
 router.post("/", protect, createAppointment);
 router.get("/", protect, getAllAppointments);
 router.get("/:id", protect, getAppointment);
