@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
+import passport from "./src/config/passport.js";
 import http from "http";
 import path from "path";
 import helmet from "helmet";
@@ -10,6 +11,7 @@ import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { fileURLToPath } from 'url';
 import { Server } from "socket.io";
+import session from "express-session";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +26,7 @@ import queueRoutes from "../server/src/routes/queue.js";
 import paymentRoutes from "../server/src/routes/payment.js";
 import notificationRoutes from "../server/src/routes/notifications.js";
 import adminRoutes from "../server/src/routes/admin.js";
+import chatRouter from './src/routes/chat.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -56,6 +59,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/api/chat', chatRouter);
 
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("MongoDB connected"))
@@ -79,6 +83,13 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
+app.use(session({
+    secret: process.env.SESSION_SECRET || "your_secret",
+    resave: false,
+    saveUninitialized: false
+}));
+app.use(passport.initialize());
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/services', serviceRoutes);
@@ -93,7 +104,7 @@ app.use('/api/admin', adminRoutes);
 // Static file serving for production
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, '../client/dist')));
-    
+
     app.get('*', (req, res) => {
         res.sendFile(path.resolve(__dirname, '..', 'client', 'dist', 'index.html'));
     });
@@ -105,7 +116,10 @@ app.use((err, req, res, next) => {
     console.error('Error Message:', err.message);
     console.error('Error Stack:', err.stack);
     console.error('Full Error:', err);
-    res.status(500).json({ message: "Something went wrong!", error: err.message });
+    res.status(500).json({
+        message: "Something went wrong!",
+        ...(process.env.NODE_ENV === 'development' && { error: err.message })
+    });
 });
 
 const PORT = process.env.PORT || 5000;

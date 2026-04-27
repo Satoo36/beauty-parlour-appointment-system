@@ -1,6 +1,7 @@
 import RazorpayPkg from "razorpay";
 import crypto from "crypto";
 import mongoose from "mongoose";
+import User from "../models/User.js";
 import Appointment from "../models/Appointment.js";
 import Payment from "../models/Payment.js";
 import Service from "../models/Service.js";
@@ -19,9 +20,103 @@ const getRazorpayInstance = () => {
     });
 };
 
+const normalizeEmail = (value = "") => value.trim().toLowerCase();
+
+const isBotUserId = (value) => {
+    const botUserId = process.env.BOT_USER_ID;
+    return Boolean(botUserId && value && value.toString() === botUserId.toString());
+};
+
+const extractCustomerDetailsFromNotes = (notes = "") => {
+    if (typeof notes !== 'string' || !notes.trim()) {
+        return { name: "", email: "" };
+    }
+
+    const nameMatch = notes.match(/Customer:\s*([^,]+?)(?:,\s*Email:|$)/i);
+    const emailMatch = notes.match(/Email:\s*([^\s,]+)/i);
+
+    return {
+        name: nameMatch?.[1]?.trim() || "",
+        email: normalizeEmail(emailMatch?.[1] || "")
+    };
+};
+
+const findUserByEmail = async (email) => {
+    const normalized = normalizeEmail(email);
+    if (!normalized) {
+        return null;
+    }
+
+    return User.findOne({ email: normalized }).select("_id name email phone");
+};
+
+const getAppointmentCustomerDetails = (appointment) => {
+    const extracted = extractCustomerDetailsFromNotes(appointment?.notes);
+
+    return {
+        name: appointment?.customerName?.trim() || extracted.name || "",
+        email: normalizeEmail(appointment?.customerEmail || "") || extracted.email || ""
+    };
+};
+
 export const createOrder = async (req, res, next) => {
     try {
-        const { serviceId, staffId, date, slotTime } = req.body;
+        if (req.body.appointmentId) {
+            const appointment = await Appointment.findById(req.body.appointmentId);
+
+            if (!appointment) {
+                return res.status(404).json({ message: "Appointment not found" });
+            }
+
+            const razorpay = getRazorpayInstance();
+            const appointmentCustomer = getAppointmentCustomerDetails(appointment);
+
+            let paymentUserId = appointment.user;
+            if (isBotUserId(paymentUserId)) {
+                paymentUserId = null;
+            }
+
+            if (!paymentUserId && appointmentCustomer.email) {
+                const matchedUser = await findUserByEmail(appointmentCustomer.email);
+                if (matchedUser) {
+                    paymentUserId = matchedUser._id;
+
+                    if (!appointment.user || isBotUserId(appointment.user)) {
+                        appointment.user = matchedUser._id;
+                    }
+                    if (!appointment.customerName) {
+                        appointment.customerName = appointmentCustomer.name || matchedUser.name;
+                    }
+                    if (!appointment.customerEmail) {
+                        appointment.customerEmail = appointmentCustomer.email || matchedUser.email;
+                    }
+                    await appointment.save();
+                }
+            }
+
+            const order = await razorpay.orders.create({
+                amount: Math.round(appointment.amount * 100),
+                currency: "INR",
+                receipt: `rcpt_${Date.now()}`
+            });
+
+            const chatbotPayment = await Payment.create({
+                user: paymentUserId || null,
+                appointment: appointment._id,
+                razorpayOrderId: order.id,
+                amount: appointment.amount,
+                currency: "INR",
+                status: "pending"
+            });
+
+            return res.status(200).json({
+                orderId: order.id,
+                amount: order.amount,
+                key: process.env.RAZORPAY_KEY_ID,
+                paymentId: chatbotPayment._id
+            });
+        }
+        const { serviceId, staffId, date, slotTime, email } = req.body;
 
         if (!serviceId || !staffId || !date || !slotTime) {
             return res.status(400).json({ message: "Service, staff, date and slot time are required" });
@@ -72,13 +167,15 @@ export const createOrder = async (req, res, next) => {
         }
 
         const razorpay = getRazorpayInstance();
+        const matchedUser = req.user || await findUserByEmail(email);
 
         const options = {
             amount: Math.round(service.price * 100),
             currency: 'INR',
             receipt: `rcpt_${Date.now().toString().slice(-10)}`,
             notes: {
-                userId: req.user._id.toString(),
+                userId: matchedUser?._id?.toString() || "guest",
+                userEmail: matchedUser?.email || normalizeEmail(email) || "",
                 serviceId: serviceId,
                 staffId: staffId,
                 date: date,
@@ -90,7 +187,7 @@ export const createOrder = async (req, res, next) => {
         const order = await razorpay.orders.create(options);
 
         const payment = await Payment.create({
-            user: req.user._id,
+            user: matchedUser?._id,
             razorpayOrderId: order.id,
             amount: service.price,
             currency: 'INR',
@@ -109,10 +206,10 @@ export const createOrder = async (req, res, next) => {
                 },
                 paymentId: payment._id,
                 key: process.env.RAZORPAY_KEY_ID,
-                preill: {
-                    name: req.user.name,
-                    email: req.user.email,
-                    contact: req.user.phone
+                prefill: {
+                    name: matchedUser?.name || req.user?.name || "Guest",
+                    email: matchedUser?.email || normalizeEmail(email) || "",
+                    contact: req.user?.phone || ""
                 }
             }
         });
@@ -134,75 +231,129 @@ export const verifyPayment = async (req, res, next) => {
             slot,
             slotTime,
             amount,
-            notes
+            notes,
+            appointmentId,
+            email
         } = req.body;
 
         console.log("--- Payment Verification Debug ---");
         console.log("req.user:", req.user);
         console.log("req.body:", req.body);
 
-        if (!req.user) {
-            console.error("❌ Authentication error: req.user is undefined in verifyPayment");
-            return res.status(401).json({ message: "You must be logged in to verify payment" });
-        }
-
         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-            console.error("❌ Missing Razorpay transaction details");
+            console.error("Missing Razorpay transaction details");
             return res.status(400).json({ message: "Razorpay order, payment, and signature are required" });
         }
 
-        // 1. Verify Signature
         const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
         hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
         const expectedSignature = hmac.digest('hex');
 
         if (razorpay_signature !== expectedSignature) {
-            console.error("❌ Invalid Payment Signature", {
+            console.error("Invalid payment signature", {
                 received: razorpay_signature,
                 expected: expectedSignature
             });
             return res.status(400).json({ message: "Invalid payment signature" });
         }
-        console.log("✅ Signature Verified");
+        console.log("Signature verified");
 
         const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
         if (!payment) {
-            console.error("❌ Payment record NOT found in DB for order ID:", razorpay_order_id);
+            console.error("Payment record not found in DB for order ID:", razorpay_order_id);
             return res.status(404).json({ message: "Payment record not found in system" });
         }
 
+        let appointmentData = null;
+        if (appointmentId) {
+            appointmentData = await Appointment.findById(appointmentId);
+
+            if (!appointmentData) {
+                return res.status(404).json({ message: "Appointment not found" });
+            }
+        }
+
+        const appointmentCustomer = getAppointmentCustomerDetails(appointmentData);
+        const matchedUserByEmail = await findUserByEmail(email || appointmentCustomer.email);
+        const paymentUser = payment.user && !isBotUserId(payment.user)
+            ? await User.findById(payment.user).select("_id name email phone")
+            : null;
+        const appointmentUser = appointmentData?.user && !isBotUserId(appointmentData.user)
+            ? await User.findById(appointmentData.user).select("_id name email phone")
+            : null;
+
+        const resolvedUser = (req.user && !isBotUserId(req.user._id) ? req.user : null)
+            || paymentUser
+            || appointmentUser
+            || matchedUserByEmail;
+
+        const userId = resolvedUser?._id || null;
+        const customerEmail = normalizeEmail(email) || appointmentCustomer.email || normalizeEmail(resolvedUser?.email || "");
+        const customerName = req.user?.name || appointmentCustomer.name || resolvedUser?.name || "";
+
         if (payment.status === 'completed') {
-            console.log("✅ Payment already processed previously");
+            const existingBooking = payment.appointment
+                ? await Appointment.findById(payment.appointment)
+                : await Appointment.findOne({ payment: payment._id });
+
+            if (existingBooking) {
+                let hasChanges = false;
+
+                if (userId && (!existingBooking.user || isBotUserId(existingBooking.user))) {
+                    existingBooking.user = userId;
+                    hasChanges = true;
+                }
+                if (customerName && !existingBooking.customerName) {
+                    existingBooking.customerName = customerName;
+                    hasChanges = true;
+                }
+                if (customerEmail && !existingBooking.customerEmail) {
+                    existingBooking.customerEmail = customerEmail;
+                    hasChanges = true;
+                }
+
+                if (hasChanges) {
+                    await existingBooking.save();
+                }
+            }
+
             return res.status(200).json({
                 success: true,
                 message: "Payment already processed",
-                booking: await Appointment.findOne({ payment: payment._id })
+                booking: existingBooking
             });
         }
 
-        // --- Resolve Staff User ID ---
-        let actualStaffId = staff?._id || staff;
-        // Search for the staff's User ID. 
-        // If 'actualStaffId' is a Staff Profile ID, we need its 'user' field.
-        // If it's already a User ID, we search by it.
+        let actualStaffId;
+        let serviceId;
+        let bookingDate;
+        let slotTimeFinal;
+
+        if (appointmentData) {
+            actualStaffId = appointmentData.staff;
+            serviceId = appointmentData.service;
+            bookingDate = appointmentData.date;
+            slotTimeFinal = appointmentData.startTime;
+        } else {
+            actualStaffId = staff?._id || staff;
+            serviceId = service?._id || service;
+            bookingDate = date;
+            slotTimeFinal = slotTime;
+        }
+
         const staffDoc = await Staff.findById(actualStaffId) || await Staff.findOne({ user: actualStaffId });
 
         if (!staffDoc) {
-            console.error("❌ Staff profile NOT found during verification for ID:", actualStaffId);
+            console.error("Staff profile not found during verification for ID:", actualStaffId);
             return res.status(404).json({ message: "Staff profile not found during verification" });
         }
 
-        // We always use the User ID for staff linkage in Appointment/Slot
         const staffUserId = staffDoc.user.toString();
-
-        // 2. Re-check Availability 
-        const queryDate = new Date(date);
+        const queryDate = new Date(bookingDate);
         queryDate.setHours(0, 0, 0, 0);
 
-        // Find or Create Slot
         let slotDoc = null;
         if (slot) {
-            // Check if 'slot' is an ID or an object
             const slotId = slot._id || slot;
             if (mongoose.Types.ObjectId.isValid(slotId)) {
                 slotDoc = await Slot.findById(slotId);
@@ -212,20 +363,20 @@ export const verifyPayment = async (req, res, next) => {
         if (!slotDoc) {
             slotDoc = await Slot.findOne({
                 staff: staffUserId,
-                service: service?._id || service,
+                service: serviceId,
                 date: queryDate,
-                startTime: slotTime
+                startTime: slotTimeFinal
             });
         }
 
         if (!slotDoc) {
             console.log("Slot not found, creating new slot dynamically...");
-            const serviceDoc = await Service.findById(service?._id || service);
+            const serviceDoc = await Service.findById(serviceId);
             if (!serviceDoc) {
-                console.error("❌ Service not found:", service);
+                console.error("Service not found:", service);
                 return res.status(404).json({ message: "Service not found during verification" });
             }
-            const [hours, minutes] = (slotTime || "09:00").split(':').map(Number);
+            const [hours, minutes] = (slotTimeFinal || "09:00").split(':').map(Number);
             const startDate = new Date(queryDate);
             startDate.setHours(hours, minutes, 0, 0);
             const endDate = new Date(startDate.getTime() + (serviceDoc.duration * 60000));
@@ -233,17 +384,23 @@ export const verifyPayment = async (req, res, next) => {
 
             slotDoc = await Slot.create({
                 staff: staffUserId,
-                service: service?._id || service,
+                service: serviceId,
                 date: queryDate,
-                startTime: slotTime || "09:00",
+                startTime: slotTimeFinal || "09:00",
                 endTime: endTimeStr,
                 isAvailable: true,
                 isBooked: false
             });
         }
 
-        if (slotDoc.isBooked) {
-            console.error("❌ Slot taken by another process!");
+        const slotReservedForCurrentAppointment = Boolean(
+            appointmentData &&
+            slotDoc.appointment &&
+            slotDoc.appointment.toString() === appointmentData._id.toString()
+        );
+
+        if (slotDoc.isBooked && !slotReservedForCurrentAppointment) {
+            console.error("Slot taken by another process");
             const razorpay = getRazorpayInstance();
             await razorpay.payments.refund(razorpay_payment_id, {
                 notes: { reason: "Slot conflict during final verification" }
@@ -260,45 +417,74 @@ export const verifyPayment = async (req, res, next) => {
             });
         }
 
-        // 3. Create Booking with safe null checks
-        const userId = req.user._id || req.user.id;
-        const serviceId = service?._id || service;
-
         console.log("Finalizing Booking in Database...");
         let appointment;
         try {
-            appointment = await Appointment.create({
-                user: userId,
-                service: serviceId,
-                staff: staffUserId,
-                slot: slotDoc._id,
-                date: queryDate,
-                startTime: slotDoc.startTime,
-                endTime: slotDoc.endTime,
-                amount: amount || payment.amount,
-                status: 'pending',
-                paymentStatus: 'paid',
-                notes: notes,
-                payment: payment._id,
-                razorpayPaymentId: razorpay_payment_id,
-                razorpayOrderId: razorpay_order_id
-            });
-            console.log("✅ Booking Success! Appointment ID:", appointment._id);
+            if (appointmentData) {
+                appointment = appointmentData;
+
+                if (userId) {
+                    appointment.user = userId;
+                } else if (appointment.user && isBotUserId(appointment.user)) {
+                    appointment.user = undefined;
+                }
+
+                appointment.customerName = customerName || appointment.customerName;
+                appointment.customerEmail = customerEmail || appointment.customerEmail;
+                appointment.service = serviceId;
+                appointment.staff = staffUserId;
+                appointment.slot = slotDoc._id;
+                appointment.date = queryDate;
+                appointment.startTime = slotDoc.startTime;
+                appointment.endTime = slotDoc.endTime;
+                appointment.amount = amount || payment.amount;
+                appointment.status = 'pending';
+                appointment.paymentStatus = 'paid';
+                appointment.notes = typeof notes === 'string' && notes.trim() ? notes : appointment.notes;
+                appointment.payment = payment._id;
+                appointment.razorpayPaymentId = razorpay_payment_id;
+                appointment.razorpayOrderId = razorpay_order_id;
+                await appointment.save();
+            } else {
+                appointment = await Appointment.create({
+                    user: userId,
+                    customerName: customerName || undefined,
+                    customerEmail: customerEmail || undefined,
+                    service: serviceId,
+                    staff: staffUserId,
+                    slot: slotDoc._id,
+                    date: queryDate,
+                    startTime: slotDoc.startTime,
+                    endTime: slotDoc.endTime,
+                    amount: amount || payment.amount,
+                    status: 'pending',
+                    paymentStatus: 'paid',
+                    notes: typeof notes === 'string' ? notes : '',
+                    payment: payment._id,
+                    razorpayPaymentId: razorpay_payment_id,
+                    razorpayOrderId: razorpay_order_id
+                });
+            }
+            console.log("Booking success! Appointment ID:", appointment._id);
         } catch (bookingError) {
-            console.error("❌ Mongoose Booking Error:", bookingError);
+            console.error("Mongoose booking error:", bookingError);
             return res.status(500).json({
                 success: false,
                 message: "Database failed to save booking: " + bookingError.message
             });
         }
 
-        // 4. Link Slot with Appointment
         slotDoc.isBooked = true;
+        slotDoc.isAvailable = false;
         slotDoc.appointment = appointment._id;
         await slotDoc.save();
-        console.log("✅ Slot updated to 'Booked' and linked to Appointment");
+        console.log("Slot updated to booked and linked to appointment");
 
-        // 5. Update Payment Status
+        if (userId) {
+            payment.user = userId;
+        } else if (payment.user && isBotUserId(payment.user)) {
+            payment.user = undefined;
+        }
         payment.razorpayPaymentId = razorpay_payment_id;
         payment.razorpaySignature = razorpay_signature;
         payment.status = 'completed';
@@ -313,7 +499,7 @@ export const verifyPayment = async (req, res, next) => {
         });
 
     } catch (err) {
-        console.error("❌ Unexpected error in verifyPayment:", err);
+        console.error("Unexpected error in verifyPayment:", err);
         return res.status(500).json({ success: false, message: "Internal server error during verification" });
     }
 };
@@ -881,3 +1067,4 @@ export const generateInvoicePDF = async (req, res, next) => {
         next(err);
     }
 };
+

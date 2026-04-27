@@ -61,17 +61,17 @@ const ContactPage = () => {
                         <form className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
-                                <input type="text" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition" placeholder="Kavya" />
+                                <input type="text" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                                <input type="email" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition" placeholder="kavya@email.com" />
+                                <input type="email" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
                                 <textarea rows="4" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition" placeholder="How can we help you?"></textarea>
                             </div>
-                            <button className="w-full bg-primary-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-primary-700 transition transform hover:-translate-y-1 shadow-md">
+                            <button className="w-full bg-primary-600 text-rose-500 font-bold py-3 px-6 rounded-lg hover:bg-primary-700 transition transform hover:-translate-y-1 shadow-md">
                                 Send Message
                             </button>
                         </form>

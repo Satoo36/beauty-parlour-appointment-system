@@ -17,14 +17,14 @@ function Register() {
     const [loading, setLoading] = useState(false);
 
     const handleChange = (e) => {
-        setForm({...form, [e.target.name]: e.target.value});
+        setForm({ ...form, [e.target.name]: e.target.value });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
 
-        if(!form.name || !form.email || !form.password) {
+        if (!form.name || !form.email || !form.password) {
             return setError("All fields are required");
         }
         try {
@@ -32,7 +32,7 @@ function Register() {
             const res = await authService.register(form);
             login(res.data.user, res.data.token);
             navigate("/dashboard");
-        } catch(err) {
+        } catch (err) {
             setError(err.response?.data?.message || "Registration failed. please try again.");
         } finally {
             setLoading(false);
@@ -89,7 +89,6 @@ function Register() {
                                 value={form.email}
                                 onChange={handleChange}
                                 className="appearance-none relative block w-full px-3 py-3 border border-ui-200 placeholder-ink-300 text-ink-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 focus:z-10 sm:text-sm transition bg-white/50 hover:bg-white"
-                                placeholder="kavya@example.com"
                             />
                         </div>
 
@@ -103,7 +102,6 @@ function Register() {
                                 value={form.password}
                                 onChange={handleChange}
                                 className="appearance-none relative block w-full px-3 py-3 border border-ui-200 placeholder-ink-300 text-ink-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 focus:z-10 sm:text-sm transition bg-white/50 hover:bg-white"
-                                placeholder="••••••••"
                             />
                         </div>
                     </div>

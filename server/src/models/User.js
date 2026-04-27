@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
-const userSchema=new mongoose.Schema({
+const userSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
@@ -12,11 +12,13 @@ const userSchema=new mongoose.Schema({
         required: true,
         unique: true,
         lowercase: true,
-        trim: true
+        trim: true,
     },
     password: {
         type: String,
-        required: true
+        required: function () {
+            return !this.googleId;
+        }
     },
     role: {
         type: String,
@@ -25,8 +27,15 @@ const userSchema=new mongoose.Schema({
     },
     phone: {
         type: String,
-        trim: true
-    }, 
+        trim: true,
+        unique: true,
+        sparse: true
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
     avatar: {
         public_id: String,
         url: String
@@ -35,17 +44,21 @@ const userSchema=new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    resetToken: String,
+    resetTokenExpiry: Date,
 },
-{
-    timestamps: true
-});
+    {
+        timestamps: true
+    });
 
-userSchema.pre("save", async function() {
-    if(!this.isModified('password')) return;
+userSchema.pre("save", async function () {
+    if (!this.password) return;
+    if (!this.isModified("password")) return;
+
     this.password = await bcrypt.hash(this.password, 12);
 });
 
-userSchema.methods.comparePassword = async function(candiatePassword) {
+userSchema.methods.comparePassword = async function (candiatePassword) {
     return await bcrypt.compare(candiatePassword, this.password);
 };
 

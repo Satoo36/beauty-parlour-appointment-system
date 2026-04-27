@@ -1,5 +1,5 @@
 # 💅 Beauty Parlour Appointment System
-### *A Full-Stack Beauty Parlour Booking & Real-Time Queue Management System*
+### *A Full-Stack MERN Application with Hybrid AI Chatbot, Real-Time Queue Management & Slot Booking*
 
 [![Status](https://img.shields.io/badge/status-production--ready-success)](https://github.com/your-username/qa-appointment-system)
 [![Node.js](https://img.shields.io/badge/Node.js-20.x-green.svg)](https://nodejs.org/)
@@ -8,10 +8,11 @@
 
 A **production-ready MERN stack application** designed to streamline beauty parlour operations with:
 
-- 📅 Smart appointment booking & slot management  
-- 💳 Secure Razorpay payments & refunds  
-- ⏱️ Real-time queue system using WebSockets  
-- 📊 Admin analytics dashboard  
+- 📅 Smart appointment booking with slot & queue management
+- 🤖 Hybrid AI chatbot for conversational booking  
+- 💳 Secure Razorpay payments & automated refunds
+- ⏱️ Real-time queue system using Socket.IO / WebSockets  
+- 📊 Admin, Staff & User role-based dashboards
 
 👉 Built to simulate a **real-world scalable SaaS product**
 
@@ -27,25 +28,36 @@ A **production-ready MERN stack application** designed to streamline beauty parl
 
 ## 🚀 Key Highlights & Features
 
+### 🤖 Hybrid AI Chatbot (Backend-Controlled)
+
+- Designed a hybrid chatbot combining AI intent detection with a backend-driven state machine
+- AI is used only for understanding user input (intent extraction), ensuring minimal API usage
+- All booking logic (services, staff, slots, appointments) is handled directly by backend for reliability
+- Supports conversational booking as well as guided step-by-step interaction
+- Eliminates rate limit issues and improves performance compared to full AI-agent systems
+
 ### 📅 Smart Appointment Booking
-- Dynamic slot generation based on staff availability
+
+- Slot-based booking system with admin-generated time slots (staff + service + date)
+- Real-time appointment status tracking (Pending, Queued, Confirmed, Completed, Cancelled)
+- Queue visibility after booking to track position and progress
 - Conflict detection to prevent double-booking
-- Service catalog with duration, pricing, and staff mapping
+- Service catalog with duration, pricing, category, and staff mapping
 
 ### 💳 Payments & Refunds
-- Razorpay integration for secure payments
-- Automated refunds with instant slot release
+- Razorpay integration for secure online payments
+- Automated refunds with instant slot release on cancellation
 - Invoice generation for completed bookings
 
 ### ⏱️ Real-time Queue System
-- Live queue board using Socket.IO
-- Instant updates across dashboards
-- Broadcast notifications for real-time events
+- Live appointment status updates using Socket.IO WebSockets
+- Sync across Admin, Staff, and User dashboards in real-time
+- Queue-like position visibility after booking (Pending / Queued / Confirmed / Completed / Cancelled)
 
-### 📊 Admin & Staff Dashboards
-- Revenue and booking analytics
-- Role-based access control (User / Staff / Admin)
-- Staff scheduling and service management
+### 📊 Role-Based Dashboards
+- Admin: Revenue analytics, booking trends, staff scheduling, service management, slot generation
+- Staff: Personal schedule, appointment status updates, real-time queue view
+- Customer: Service browsing, booking history, queue position tracking
 ---
 
 ## 📸 Screenshots & Visuals
@@ -97,6 +109,11 @@ A **production-ready MERN stack application** designed to streamline beauty parl
 - **Auth**: JWT (JSON Web Tokens) & Bcrypt.js
 - **Payment**: Razorpay SDK
 - **Storage**: Cloudinary (Image management)
+- **Security headers**: Helmet, CORS
+
+### AI & Automation
+- AI Intent Detection (lightweight usage for natural language understanding)
+- Backend State Machine (controls chatbot flow and booking logic)
 
 ---
 
@@ -104,7 +121,27 @@ A **production-ready MERN stack application** designed to streamline beauty parl
 
 ![Architecture Diagram](docs/architecture-diagram.png)
 
-The system follows a decoupled **Client-Server Architecture** with a centralized API layer. The backend implements a controller-service-model pattern for scalability, while the frontend utilizes a service-based API layer to interact with the RESTful endpoints and WebSocket events.
+- The system follows a decoupled **Client–Server Architecture** with a centralized API layer.
+- The backend is built using Node.js and Express with a controller–service–model pattern, ensuring scalability and maintainability.
+- Real-time updates are handled using WebSockets (Socket.IO) for queue and appointment status synchronization across clients.
+- The chatbot is implemented using a backend-driven state machine for reliable booking flow
+- AI is used only for intent detection (not for business logic execution)
+
+---
+
+## 🧠 Chatbot Design
+
+This project uses a hybrid chatbot architecture:
+
+- AI is used only for understanding user intent (natural language)
+- Backend handles all business logic and booking flow
+- Ensures:
+  - High reliability
+  - No API rate limit issues
+  - Faster response time
+  - Deterministic booking process
+
+This approach is more production-ready compared to full AI-agent systems.
 
 ---
 
@@ -129,13 +166,15 @@ qa-appointment-system/
 │   │   ├── middleware/     # Auth, validation, error handling
 │   │   ├── socket/         # Real-time event handlers (SocketIO)
 │   │   └── utils/          # Helpers (Cloudinary, token logic)
+│   └── createBotUser.js    # Script to create real bot user 
 │   └── .env.example        # Server environment template
+│   └── server.js           # App entry point
 │
-└── docs/                   # Architecture and Screenshots
+└── docs/                   # Architecture,Screenshots
 ```
 
 ---
-
+ 
 ## 🔑 Demo Credentials
 
 | Role | Email | Password |
@@ -169,6 +208,13 @@ MONGO_URI=your_mongodb_uri
 JWT_SECRET=your_jwt_secret
 CLOUDINARY_CLOUD_NAME=name
 RAZORPAY_KEY_ID=rzp_test_xxx
+CLIENT_URL=http://localhost:5173
+```
+
+**Client `.env` Highlights:**
+```env
+VITE_API_URL=http://localhost:5000
+VITE_RAZORPAY_KEY_ID=rzp_test_xxx
 ```
 
 ### 4. Run Development
@@ -177,7 +223,20 @@ RAZORPAY_KEY_ID=rzp_test_xxx
 npm run dev
 ```
 
+### 5. Chatbot Setup
+
+- The chatbot is built into the backend using a state machine architecture
+- No external workflow setup required
+
 ---
+
+### Generate Slots (Admin Panel)
+Before the chatbot can book appointments, slots must be pre-generated:
+
+- Log in as Admin → go to Slots section
+- Select staff member, service, and date
+- Click Generate Slots
+- Repeat for each staff + service + date combination
 
 ## 📡 API Overview (Brief)
 
@@ -231,6 +290,15 @@ Distributed under the ISC License. See `LICENSE` for more information.
 - **Environment Variables**: Never commit `.env` files to source control.
 - **API Security**: Implemented Helmet for secure headers and Rate-Limiting to prevent brute-force attacks.
 - **CORS**: Configured to allow only trusted origin requests in production.
+
+---
+
+## 🚀 Key Engineering Decisions
+
+- Replaced AI-agent workflow with backend-driven chatbot architecture
+- Reduced API usage drastically by limiting AI calls to intent detection only
+- Designed scalable slot and queue-based booking system
+- Implemented real-time updates using WebSockets
 
 ---
 

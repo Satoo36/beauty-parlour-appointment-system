@@ -21,59 +21,38 @@ export const getAvailableSlots = async (req, res, next) => {
             });
         }
 
+        // Validate service exists
         const serviceDoc = await Service.findById(service);
         if (!serviceDoc) {
             return res.status(404).json({ message: "Service not found" });
         }
 
+        // Validate staff exists (staff field stores User ID)
         const staffDoc = await Staff.findOne({ user: staff });
         if (!staffDoc) {
             return res.status(404).json({ message: "Staff not found" });
         }
 
-        const selectedDate = new Date(date);
-        if (isNaN(selectedDate.getTime())) {
-            return res.status(400).json({ message: "Invalid date format" });
-        }
+        // Build precise date range using local time to avoid timezone issues
+        const startOfDay = parseLocalDate(date, 0, 0);
+        const endOfDay = parseLocalDate(date, 23, 59);
+        endOfDay.setMilliseconds(999);
 
-        const dayName = selectedDate
-            .toLocaleDateString("en-US", { weekday: "long" })
-            .toLowerCase();
-
-        const workingDay = staffDoc.workingHours?.[dayName];
-
-        if (!workingDay || !workingDay.isWorking) {
-            return res.status(200).json({ count: 0, data: [] });
-        }
-
-        const allSlots = generateSlots(
-            selectedDate,
-            workingDay,
-            serviceDoc.duration,
-            []
-        );
-
-        const startOfDay = new Date(selectedDate);
-        startOfDay.setHours(0, 0, 0, 0);
-
-        const endOfDay = new Date(startOfDay);
-        endOfDay.setDate(endOfDay.getDate() + 1);
-
-        const appointments = await Appointment.find({
-            staff: staff,
-            date: { $gte: startOfDay, $lt: endOfDay },
-            status: { $ne: "cancelled" }
-        });
-
-        const bookedTimes = appointments.map(a => a.startTime);
-
-        const availableSlots = allSlots.filter(
-            slot => !bookedTimes.includes(slot.startTime)
-        );
+        // Query REAL Slot documents from MongoDB — these have actual _id fields
+        // The chatbot needs these _id values to create bookings
+        const slots = await Slot.find({
+            staff: staff,       // staff field stores User ObjectId
+            service: service,
+            date: { $gte: startOfDay, $lte: endOfDay },
+            isAvailable: true,
+            isBooked: false
+        })
+            .select('_id startTime endTime date')
+            .sort({ startTime: 1 });
 
         return res.status(200).json({
-            count: availableSlots.length,
-            data: availableSlots
+            count: slots.length,
+            data: slots
         });
 
     } catch (err) {
@@ -89,48 +68,43 @@ export const generateSlotsForService = async (req, res, next) => {
             return res.status(400).json({ message: "staffId and date are required" });
         }
 
-        // staffId from frontend is a User ID — look up Staff profile for working hours
+        // staffId from frontend is a User ID — look up Staff profile, populate all services
         const staff = await Staff.findOne({ user: staffId }).populate('services');
         if (!staff) {
             return res.status(404).json({ message: "Staff not found" });
         }
 
-        const effectiveServiceId = serviceId || (staff.services && staff.services[0]?._id);
-        if (!effectiveServiceId) {
-            return res.status(400).json({ message: "No service found for this staff" });
+        // ── Determine which services to process ────────────────────────────────
+        // If a specific serviceId was provided → process only that service.
+        // Otherwise → process ALL services assigned to this staff member.
+        let servicesToProcess = [];
+
+        if (serviceId) {
+            const service = await Service.findById(serviceId);
+            if (!service) {
+                return res.status(404).json({ message: "Service not found" });
+            }
+            servicesToProcess = [service];
+        } else {
+            if (!staff.services || staff.services.length === 0) {
+                return res.status(400).json({ message: "No services assigned to this staff member" });
+            }
+            // staff.services is already populated with full Service documents
+            servicesToProcess = staff.services;
         }
 
-        const service = await Service.findById(effectiveServiceId);
-        if (!service) {
-            return res.status(404).json({ message: "Service not found" });
-        }
-
-        // 1. Precise Local Range for Normalization
+        // ── Date validation ─────────────────────────────────────────────────────
         const startOfDay = parseLocalDate(date, 0, 0);
-        const endOfDay = parseLocalDate(date, 23, 59);
+        const endOfDay   = parseLocalDate(date, 23, 59);
         endOfDay.setMilliseconds(999);
 
-        // 2. Block Past Date Generation
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (startOfDay < today) {
             return res.status(400).json({ message: "Cannot generate slots for past dates." });
         }
 
-        // 3. Strict Duplicate Check — staff field stores User ID
-        const existingSlotCount = await Slot.countDocuments({
-            staff: staffId,
-            date: { $gte: startOfDay, $lte: endOfDay }
-        });
-
-        if (existingSlotCount > 0) {
-            return res.status(200).json({
-                message: "Slots already generated for this date",
-                data: { slotsGenerated: 0, existing: existingSlotCount }
-            });
-        }
-
-        // Working hours logic
+        // ── Resolve working hours ───────────────────────────────────────────────
         let workingHours = providedWorkingHours;
         if (!workingHours) {
             const dayName = startOfDay.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
@@ -140,40 +114,79 @@ export const generateSlotsForService = async (req, res, next) => {
             }
         }
 
-        // 4. Generate Slot Data — store User ID in staff field
-        const newSlotsData = generateSlots(startOfDay, workingHours, service.duration, []);
+        // ── Loop through each service and generate slots independently ──────────
+        let totalSlotsCreated = 0;
+        const servicesProcessed = [];
 
-        const slotsToCreate = newSlotsData.map(slot => {
-            return {
-                staff: staffId,
+        for (const service of servicesToProcess) {
+            // Per-service duplicate check: skip if slots already exist for
+            // this exact (staffId + serviceId + date) combination
+            const existingCount = await Slot.countDocuments({
+                staff:   staffId,
                 service: service._id,
-                date: startOfDay,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                isAvailable: true,
-                isBooked: false
-            };
-        });
-
-        if (slotsToCreate.length === 0) {
-            return res.status(400).json({
-                message: "No slots could be generated based on working hours.",
-                data: { slotsGenerated: 0 }
+                date:    { $gte: startOfDay, $lte: endOfDay }
             });
+
+            if (existingCount > 0) {
+                servicesProcessed.push({
+                    serviceId:   service._id,
+                    serviceName: service.name,
+                    slotsCreated: 0,
+                    skipped: true,
+                    reason: "Slots already exist for this date"
+                });
+                console.log(`⚠️  Slots already exist for service "${service.name}" on ${date} — skipping`);
+                continue;
+            }
+
+            // Use this service's own duration to generate correctly-sized chunks
+            const rawSlots = generateSlots(startOfDay, workingHours, service.duration, []);
+
+            if (rawSlots.length === 0) {
+                servicesProcessed.push({
+                    serviceId:   service._id,
+                    serviceName: service.name,
+                    slotsCreated: 0,
+                    skipped: true,
+                    reason: "No slots fit within working hours for this service duration"
+                });
+                continue;
+            }
+
+            const slotsToCreate = rawSlots.map(slot => ({
+                staff:       staffId,          // stores User ObjectId
+                service:     service._id,      // stores Service ObjectId
+                date:        startOfDay,
+                startTime:   slot.startTime,
+                endTime:     slot.endTime,
+                isAvailable: true,
+                isBooked:    false
+            }));
+
+            const inserted = await Slot.insertMany(slotsToCreate);
+            totalSlotsCreated += inserted.length;
+
+            servicesProcessed.push({
+                serviceId:   service._id,
+                serviceName: service.name,
+                duration:    service.duration,
+                slotsCreated: inserted.length,
+                skipped: false
+            });
+
+            console.log(`✅ ${inserted.length} slots created for service "${service.name}" — staff ${staffId} on ${date}`);
         }
 
-        // 5. Insert and Log
-        const insertedSlots = await Slot.insertMany(slotsToCreate);
-        console.log(`✅ ${insertedSlots.length} slots inserted for staff ${staffId} on ${date}`);
-
         return res.status(201).json({
-            message: `${insertedSlots.length} slots generated successfully`,
+            success: true,
+            message: `${totalSlotsCreated} slot(s) generated across ${servicesToProcess.length} service(s)`,
             data: {
-                slotsGenerated: insertedSlots.length,
+                totalSlotsCreated,
                 date: startOfDay,
-                service: service.name
+                servicesProcessed
             }
         });
+
     } catch (err) {
         console.error("❌ Error in generateSlotsForService:", err);
         return res.status(500).json({

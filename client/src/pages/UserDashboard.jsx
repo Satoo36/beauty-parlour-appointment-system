@@ -61,7 +61,7 @@ const UserDashboardView = ({ user, appointments, loading, stats, upcomingAppoint
                 <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-bl-full -z-0 opacity-50"></div>
                 <div className="relative z-10 w-full md:w-2/3">
                     <h2 className="text-4xl font-serif font-bold text-ink-900 mb-2">
-                        Welcome back, {user.name.split(' ')[0]}!
+                        Welcome back, {user?.name ? user.name.split(' ')[0] : "User"}
                     </h2>
                     <p className="text-ink-500 text-lg">
                         You have <span className="font-bold text-rose-600">{stats?.statusBreakdown?.find(s => s._id === 'confirmed')?.count || 0}</span> active {stats?.statusBreakdown?.find(s => s._id === 'confirmed')?.count === 1 ? 'appointment' : 'appointments'}.
@@ -297,7 +297,7 @@ function UserDashboard() {
         }
     };
 
-    if (!user) return null;
+    if (!user) return <div>Loading...</div>;
 
     return (
         <div className="min-h-screen bg-surface-50 py-12">

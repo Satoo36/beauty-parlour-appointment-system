@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+    baseURL: (import.meta.env.VITE_API_URL || "http://localhost:5000") + "/api",
     headers: {
         "Content-Type": "application/json",
     },
@@ -36,6 +36,8 @@ export const authService = {
     me: () => api.get("/auth/me"),
     updateProfile: (data) => api.put("/auth/profile", data),
     logout: () => api.post("/auth/logout"),
+    forgotPassword: (email) => api.post("/auth/forgot-password", { email }),
+    resetPassword: (data) => api.post("/auth/reset-password", data),
 };
 
 export const serviceService = {

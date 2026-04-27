@@ -41,7 +41,9 @@ const slotSchema = new mongoose.Schema(
         timestamps: true
     });
 
-slotSchema.index({ staff: 1, date: 1, startTime: 1, }, { unique: true });
+// Uniqueness is scoped to (staff + service + date + startTime)
+// This allows the same time slot to exist per-service for the same staff member
+slotSchema.index({ staff: 1, service: 1, date: 1, startTime: 1 }, { unique: true });
 
 const Slot = mongoose.models.Slot || mongoose.model("Slot", slotSchema);
 export default Slot;

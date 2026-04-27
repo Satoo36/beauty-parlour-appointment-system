@@ -6,20 +6,20 @@ const LandingPage = () => {
         <div className="font-sans">
             <section className="relative h-[80vh] flex items-center justify-center overflow-hidden">
                 <div className="absolute inset-0 z-0">
-                    <img src={heroImage} alt="Glamour Beauty" 
+                    <img src={heroImage} alt="Glamour Beauty"
                         className="absolute w-full h-full object-cover filter"
                     />
                     <div className="absolute inset-0 bg-surface-50/30 mix-blend-overlay"></div>
                 </div>
                 <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-                    <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 leading-tight animate-fade-in-up">
+                    <h1 className="text-5xl md:text-7xl font-serif font-bold text-ink-700 mb-6 leading-tight animate-fade-in-up">
                         Redefine Your <span className="text-rose-500">Elegance</span>
                     </h1>
                     <p className="text-xl md:text-2xl text-ink-800 mb-10 font-light max-w-2xl mx-auto">
                         Experience world-class beauty treatments in a sanctuary of luxury and relaxation.
                     </p>
                     <div className="flex flex-col md:flex-row gap-4 justify-center">
-                        <Link 
+                        <Link
                             to="/services"
                             className="px-8 py-4 bg-rose-500 text-white text-lg font-semibold rounded-full shadow-lg shadow-rose-900/20 hover:bg-rose-600 transition-all duration-300 hover:-translate-y-1 transform"
                         >

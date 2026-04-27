@@ -7,7 +7,7 @@ import { loadRazorpay } from "../utils/razorpayLoader";
 const BookingPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { user } = useContext(AuthContext);
+    const { user, loading: authLoading } = useContext(AuthContext);
 
     const [step, setStep] = useState(1);
     const [services, setServices] = useState([]);
@@ -19,6 +19,7 @@ const BookingPage = () => {
         staffId: searchParams.get('staff') || '',
         date: '',
         slot: null,
+        guestEmail: '',
     });
 
     const [loading, setLoading] = useState(false);
@@ -95,9 +96,16 @@ const BookingPage = () => {
         try {
             const slotObj = selection.slot;
             const slotTime = slotObj?.startTime || slotObj?.time || slotObj;
+            const customerEmail = (user?.email || selection.guestEmail || '').trim().toLowerCase();
 
             if (!slotTime) {
                 alert("Please select a slot");
+                setBookingLoading(false);
+                return;
+            }
+
+            if (!user && !customerEmail) {
+                alert("Please enter your email so we can link this booking to your dashboard.");
                 setBookingLoading(false);
                 return;
             }
@@ -116,10 +124,11 @@ const BookingPage = () => {
                 serviceId: selection.serviceId,
                 staffId: selection.staffId,
                 date: selection.date,
-                slotTime: slotTime
+                slotTime: slotTime,
+                email: customerEmail
             });
 
-            const { order, key, preill } = orderRes.data.data;
+            const { order, key, prefill } = orderRes.data.data;
 
             // 2. Open Razorpay Checkout
             const isLoaded = await loadRazorpay();
@@ -152,7 +161,8 @@ const BookingPage = () => {
                             slot: slotObj?._id,
                             slotTime: slotTime,
                             amount: order.amount / 100, // INR to units
-                            notes: ""
+                            notes: "",
+                            email: customerEmail
                         });
 
                         if (verifyRes.data.success) {
@@ -168,9 +178,9 @@ const BookingPage = () => {
                     }
                 },
                 prefill: {
-                    name: preill?.name || user?.name || "",
-                    email: preill?.email || user?.email || "",
-                    contact: preill?.contact || user?.phone || ""
+                    name: prefill?.name || user?.name || "",
+                    email: prefill?.email || user?.email || "",
+                    contact: prefill?.contact || user?.phone || ""
                 },
                 notes: {
                     address: "Glamour Beauty Parlour"
@@ -371,6 +381,24 @@ const BookingPage = () => {
                     <span className="text-ink-500">Date & Time</span>
                     <span className="font-semibold text-ink-900">{selection.date} at {slotTime}</span>
                 </div>
+                {!user && (
+                    <>
+                        <div className="border-t border-ui-200"></div>
+                        <div className="space-y-2 py-2">
+                            <label className="block text-ink-500 text-sm">Email for booking history</label>
+                            <input
+                                type="email"
+                                value={selection.guestEmail}
+                                onChange={(e) => setSelection({ ...selection, guestEmail: e.target.value })}
+                                placeholder="Enter the email you will use to log in"
+                                className="w-full p-3 border border-ui-300 rounded-lg outline-none focus:border-rose-300 focus:ring-2 focus:ring-rose-100 transition bg-white text-ink-900"
+                            />
+                            <p className="text-xs text-ink-400">
+                                Use the same email later and this appointment will appear in your dashboard.
+                            </p>
+                        </div>
+                    </>
+                )}
                 <div className="border-t-2 border-rose-200 pt-4 mt-2">
                     <div className="flex justify-between items-center">
                         <span className="font-bold text-lg text-ink-900">Total</span>
@@ -452,7 +480,7 @@ const BookingPage = () => {
                     ) : (
                         <button
                             onClick={handleBook}
-                            disabled={bookingLoading}
+                            disabled={bookingLoading || (!user && !selection.guestEmail.trim())}
                             className="px-8 py-3 bg-rose-600 text-white rounded-full font-medium shadow-md hover:bg-rose-700 transition-all disabled:opacity-70"
                         >
                             {bookingLoading ? (

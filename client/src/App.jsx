@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useContext } from "react";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import UserDashboard from "./pages/UserDashboard";
 import AppointmentForm from "./components/AppointmentForm";
 
@@ -30,7 +32,8 @@ import AdminSlots from "./pages/admin/AdminSlots";
 import AdminPayments from "./pages/admin/AdminPayments";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminNotifications from "./pages/admin/AdminNotifications";
-
+import ChatWidget from "./components/ChatWidget";
+import GoogleCallback from "./pages/GoogleCallback";
 
 function AppRoutes() {
   const { user } = useContext(AuthContext);
@@ -45,6 +48,8 @@ function AppRoutes() {
         <Route path="/staff" element={<StaffList />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/booking"
           element={
@@ -123,6 +128,8 @@ function AppRoutes() {
         <Route path="notifications" element={<AdminNotifications />} />
       </Route>
 
+      <Route path="/auth/google/callback" element={<GoogleCallback />} />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -132,6 +139,7 @@ function App() {
   return (
     <AuthProvider>
       <AppRoutes />
+      <ChatWidget />
     </AuthProvider>
   );
 }

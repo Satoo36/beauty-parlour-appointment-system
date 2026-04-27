@@ -7,6 +7,42 @@ import Staff from "../models/Staff.js";
 import Service from "../models/Service.js";
 import { sendQueueUpdate } from "../utils/notification.js";
 
+const normalizeEmail = (value = "") => value.trim().toLowerCase();
+
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const buildUserOwnershipQuery = (user) => {
+    const clauses = [{ user: user._id }];
+    const userEmail = normalizeEmail(user?.email || "");
+
+    if (userEmail) {
+        clauses.push({ customerEmail: userEmail });
+        clauses.push({ notes: { $regex: escapeRegex(userEmail), $options: 'i' } });
+    }
+
+    return clauses.length === 1 ? clauses[0] : { $or: clauses };
+};
+
+const isAppointmentOwnedByUser = (appointment, user) => {
+    const appointmentUserId = appointment?.user?._id
+        ? appointment.user._id.toString()
+        : appointment?.user?.toString();
+    const userId = user?._id?.toString();
+
+    if (appointmentUserId && userId && appointmentUserId === userId) {
+        return true;
+    }
+
+    const appointmentEmail = normalizeEmail(appointment?.customerEmail || "");
+    const userEmail = normalizeEmail(user?.email || "");
+    if (appointmentEmail && userEmail && appointmentEmail === userEmail) {
+        return true;
+    }
+
+    const notes = typeof appointment?.notes === 'string' ? appointment.notes.toLowerCase() : '';
+    return Boolean(userEmail && notes.includes(userEmail));
+};
+
 export const createAppointment = async (req, res, next) => {
     try {
         const user = req.user;
@@ -57,7 +93,7 @@ export const createAppointment = async (req, res, next) => {
             endTime: slotData.endTime,
             amount: slotData.service?.price || 0,
             notes: notes ? notes.trim() : '',
-            status: 'confirmed',
+            status: 'pending',
             paymentStatus: 'pending'
         });
 
@@ -84,7 +120,11 @@ export const getAllAppointments = async (req, res, next) => {
 
         // Always filter by user for regular users
         if (req.user.role === 'user') {
-            query.user = req.user._id;
+            query.$or = [
+                { user: req.user._id },
+                { customerEmail: req.user.email },
+                { notes: { $regex: req.user.email, $options: 'i' } }
+            ];
         } else if (req.user.role === 'staff') {
             query.staff = req.user._id;
         } else if (staff) {

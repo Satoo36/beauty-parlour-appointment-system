@@ -1,32 +1,73 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
+const getBearerToken = (req) => {
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+        return req.headers.authorization.split(' ')[1];
+    }
+
+    return null;
+};
+
+const getUserFromToken = async (token) => {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.id === 'bot-agent') {
+        console.log("AI Agent identified! Bypassing DB lookup.");
+        return { _id: "bot-agent", name: "AI Agent", role: "admin", isActive: true };
+    }
+
+    console.log("User request identification for ID:", decoded.id);
+    const user = await User.findById(decoded.id).select("_id name email role isActive");
+
+    if (!user) {
+        throw new Error("USER_NOT_FOUND");
+    }
+
+    if (user.isActive === false) {
+        throw new Error("USER_DISABLED");
+    }
+
+    return user;
+};
+
 export const protect = async (req, res, next) => {
     try {
-        let token;
-        if(req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-            token = req.headers.authorization.split(' ')[1];
+        const token = getBearerToken(req);
+
+        if (!token) {
+            return res.status(401).json({ message: "Not authorized, token missing" });
         }
 
-        if(!token) {
-            return res.status(401).json({message: "Not authorized, token missing"});
-        }
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id).select("_id name email role isActive");
-
-        if(!user) {
-            return res.status(401).json({message: "User not found"});
-        }
-
-        if(user.isActive === false) {
-            return res.status(403).json({message: "Account is disabled"});
-        }
-
-        req.user = user;
+        req.user = await getUserFromToken(token);
         next();
-    } catch(error) {
-        return res.status(401).json({message: "Invalid or expired token"});
+    } catch (error) {
+        if (error.message === "USER_NOT_FOUND") {
+            return res.status(401).json({ message: "User not found" });
+        }
+
+        if (error.message === "USER_DISABLED") {
+            return res.status(403).json({ message: "Account is disabled" });
+        }
+
+        return res.status(401).json({ message: "Invalid or expired token" });
+    }
+};
+
+export const optionalProtect = async (req, res, next) => {
+    try {
+        const token = getBearerToken(req);
+
+        if (!token) {
+            return next();
+        }
+
+        req.user = await getUserFromToken(token);
+        return next();
+    } catch (error) {
+        console.warn("Optional auth skipped:", error.message);
+        req.user = undefined;
+        return next();
     }
 };
 
@@ -40,10 +81,9 @@ export const authorize = (...roles) => {
 };
 
 export const errorHandler = (err, req, res, next) => {
-  console.error("🔥 REAL ERROR:", err);
+  console.error("REAL ERROR:", err);
 
   res.status(500).json({
-    message: err.message,
-    stack: err.stack // remove later
+    message: err.message
   });
 };

@@ -100,3 +100,22 @@ temp/
 .node_repl_history
 .yarn-integrity
 yarn.lock
+
+# AI Agent / bot secrets
+server/bot-token.txt
+*.bot
+
+# n8n local data
+.n8n/
+
+# Additional environment/temp files
+.pnpm-store/
+.terraform/
+
+# n8n utility scripts
+failsafe-n8n.js
+finalize-n8n.js
+fix-n8n.js
+restore-memory.js
+update-n8n-tools.js
+server/sync-n8n-final.cjs
