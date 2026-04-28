@@ -213,7 +213,7 @@ CLIENT_URL=http://localhost:5173
 
 **Client `.env` Highlights:**
 ```env
-VITE_API_URL=http://localhost:5000
+VITE_BACKEND_URL=https://beauty-parlour-appointment-system.onrender.com
 VITE_RAZORPAY_KEY_ID=rzp_test_xxx
 ```
 

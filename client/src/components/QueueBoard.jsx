@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { appointmentService } from "../api/api";
 
-const socket = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000");
+const socket = io(import.meta.env.VITE_BACKEND_URL, {
+    transports: ["websocket"]
+});
 
 function QueueBoard({ appointments, user, onRefresh }) {
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -63,11 +65,11 @@ function QueueBoard({ appointments, user, onRefresh }) {
         setIsLoading(true);
         try {
             await appointmentService.updateStatus(current._id, "completed");
-            
+
             if (waiting.length > 0) {
                 await appointmentService.updateStatus(waiting[0]._id, "in-progress");
             }
-            
+
             socket.emit("queue:update");
             onRefresh();
         } catch (err) {

@@ -32,9 +32,12 @@ const AdminNotifications = () => {
         try {
             setSending(true);
             const token = localStorage.getItem('token');
-            await axios.post('http://localhost:5000/api/notifications/broadcast', notification, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await axios.post(
+                `${import.meta.env.VITE_BACKEND_URL}/api/notifications/broadcast`,
+                notification,
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
 
             setHistory(prev => [{ ...notification, timestamp: new Date() }, ...prev]);
             setNotification({ title: "", message: "", type: "info", target: "all" });
@@ -72,8 +75,8 @@ const AdminNotifications = () => {
                                             type="button"
                                             onClick={() => setNotification(prev => ({ ...prev, type: t.value }))}
                                             className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${notification.type === t.value
-                                                    ? `border-slate-900 ${t.bg}`
-                                                    : 'border-slate-50 hover:border-slate-200'
+                                                ? `border-slate-900 ${t.bg}`
+                                                : 'border-slate-50 hover:border-slate-200'
                                                 }`}
                                         >
                                             <Icon className={t.color} size={24} />
@@ -141,7 +144,7 @@ const AdminNotifications = () => {
                                                 {new Date(h.timestamp).toLocaleString()}
                                             </span>
                                             <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${h.type === 'info' ? 'bg-blue-100 text-blue-600' :
-                                                    h.type === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
+                                                h.type === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
                                                 }`}>
                                                 {h.type}
                                             </div>
