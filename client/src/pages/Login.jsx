@@ -30,7 +30,7 @@ function Login() {
 
     const handleGoogleLogin = () => {
         // Redirect to backend Google OAuth
-        window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google`;
+        window.location.href = `${import.meta.env.VITE_BACKEND_URL}/api/auth/google`;
     };
 
     return (

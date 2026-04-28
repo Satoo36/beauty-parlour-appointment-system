@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
+const SOCKET_URL = import.meta.env.VITE_BACKEND_URL;
 
 export default function useSocket() {
     const socketRef = useRef(null);
@@ -32,9 +32,9 @@ export default function useSocket() {
         });
 
         return () => {
-            if(socketRef.current) {
+            if (socketRef.current) {
                 socketRef.current.disconnect();
-                socketRef.current=null;
+                socketRef.current = null;
             }
         };
     }, []);
@@ -52,10 +52,10 @@ export default function useSocket() {
     };
 
     const reconnect = () => {
-        if(socketRef.current) {
+        if (socketRef.current) {
             socketRef.current.disconnect();
             const token = localStorage.getItem("token");
-            socketRef.current.auth = {token};
+            socketRef.current.auth = { token };
             socketRef.current.connect();
         }
     };

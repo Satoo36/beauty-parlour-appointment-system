@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
 // ─── Point to your backend, NOT n8n ───────────────────────────────────────
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_BACKEND_URL;
 const CHAT_URL = `${API_BASE}/api/chat`;
 const CHAT_START_URL = `${API_BASE}/api/chat/start`;
 
@@ -139,15 +139,18 @@ export default function ChatWidget() {
         setLoading(true);
 
         try {
+            const user = JSON.parse(localStorage.getItem("user"));
             const res = await fetch(CHAT_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+
                 body: JSON.stringify({
                     message: userText,           // raw value (e.g. ObjectId or action name)
                     sessionId: sessionId.current,
                     isButtonClick,
                     type: buttonOption?.type || "",
-                    meta: buttonOption?.meta || {}
+                    meta: buttonOption?.meta || {},
+                    user
                 })
             });
 
