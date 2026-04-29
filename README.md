@@ -1,7 +1,7 @@
 # 💅 Beauty Parlour Appointment System
 ### *A Full-Stack MERN Application with Hybrid AI Chatbot, Real-Time Queue Management & Slot Booking*
 
-[![Status](https://img.shields.io/badge/status-production--ready-success)](https://github.com/your-username/qa-appointment-system)
+[![Status](https://img.shields.io/badge/status-production--ready-success)](https://github.com/kavyanerella65/beauty-parlour-appointment-system)
 [![Node.js](https://img.shields.io/badge/Node.js-20.x-green.svg)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18.x-blue.svg)](https://reactjs.org/)
 [![License](https://img.shields.io/badge/license-ISC-orange.svg)](LICENSE)
@@ -18,11 +18,26 @@ A **production-ready MERN stack application** designed to streamline beauty parl
 
 ---
 
-## 🌐 Live Demo
+## 🌐 Live
 
-🚧 Deployment in progress (will be available soon)
+🔗 Frontend (Vercel):  
+https://beauty-parlour-appointment-system.vercel.app 
 
-👉 Meanwhile, run locally using setup guide below.
+🔗 Backend API (Render):  
+https://beauty-parlour-appointment-system.onrender.com  
+
+👉 Note: First request may take ~30–50 seconds due to Render free tier cold start.
+
+---
+
+### ⚡ Quick Test Guide
+
+1. Open the frontend link
+2. Login using demo credentials OR Google login
+3. Try booking via chatbot or manual flow
+4. Check real-time queue updates
+
+💡 Tip: Wait a few seconds if backend is waking up (Render free tier)
 
 ---
 
@@ -87,8 +102,8 @@ A **production-ready MERN stack application** designed to streamline beauty parl
 *Users can track bookings, history, and upcoming appointments.*
 
 ### 🎬 1-Minute Demo Video
-![Full Booking Demo] - (https://drive.google.com/file/d/1yBQ0XyBk2IwEkQSTuf5JMKDSzCSZJ8pj/view?usp=drive_link)
-*End-to-end booking flow including slot selection, payment, confirmation, and live queue system.*
+![🎬 Watch Full Booking Demo] - (https://drive.google.com/file/d/1yBQ0XyBk2IwEkQSTuf5JMKDSzCSZJ8pj/view?usp=drive_link)
+*End-to-end booking flow including slot selection, payment, confirmation, and live queue system.* 
 
 ---
 
@@ -148,7 +163,7 @@ This approach is more production-ready compared to full AI-agent systems.
 ## 📂 Project Structure
 
 ```bash
-qa-appointment-system/
+beauty-parlour-appointment-system/
 ├── client/                 # React Frontend (Vite)
 │   ├── src/
 │   │   ├── api/            # Centralized API service layer
@@ -195,7 +210,7 @@ qa-appointment-system/
 ### 2. Clone & Install
 ```bash
 git clone https://github.com/kavyanerella65/beauty-parlour-appointment-system.git
-cd qa-appointment-system
+cd beauty-parlour-appointment-system
 npm run install:all
 ```
 
@@ -208,7 +223,7 @@ MONGO_URI=your_mongodb_uri
 JWT_SECRET=your_jwt_secret
 CLOUDINARY_CLOUD_NAME=name
 RAZORPAY_KEY_ID=rzp_test_xxx
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=https://beauty-parlour-appointment-system.vercel.app 
 ```
 
 **Client `.env` Highlights:**
@@ -263,10 +278,16 @@ Before the chatbot can book appointments, slots must be pre-generated:
 
 ## 🚢 Deployment
 
-- **Frontend**: Recommended deployment on Vercel or Netlify.
-- **Backend**: Recommended deployment on Render or Railway.
-- **Database**: MongoDB Atlas for cloud persistence.
-- **Static Files**: Cloudinary handles all media storage.
+- **Frontend**: Deployed on Vercel  
+  👉 https://beauty-parlour-appointment-system.vercel.app  
+
+- **Backend**: Deployed on Render  
+  👉 https://beauty-parlour-appointment-system.onrender.com  
+
+- **Database**: MongoDB Atlas (Cloud)  
+- **Media Storage**: Cloudinary  
+
+⚠️ Note: Backend may take a few seconds to respond initially due to free-tier cold start.
 
 ---
 
