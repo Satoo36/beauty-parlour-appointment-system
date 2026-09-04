@@ -40,15 +40,23 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
-                    docker build \
-                      -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
-                      -t ${FRONTEND_IMAGE}:latest \
-                      ./client
+                    echo "Building frontend Docker image..."
 
                     docker build \
-                      -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
-                      -t ${BACKEND_IMAGE}:latest \
-                      ./server
+                        -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
+                        -t ${FRONTEND_IMAGE}:latest \
+                        ./client
+
+                    echo "Building backend Docker image..."
+
+                    docker build \
+                        -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
+                        -t ${BACKEND_IMAGE}:latest \
+                        ./server
+
+                    echo "Docker images built successfully."
+
+                    docker images | grep "beauty-parlour"
                 '''
             }
         }
@@ -74,11 +82,17 @@ pipeline {
         stage('Push Images') {
             steps {
                 sh '''
+                    echo "Pushing frontend image..."
+
                     docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
                     docker push ${FRONTEND_IMAGE}:latest
 
+                    echo "Pushing backend image..."
+
                     docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
                     docker push ${BACKEND_IMAGE}:latest
+
+                    echo "Docker images pushed successfully."
                 '''
             }
         }
@@ -90,9 +104,12 @@ pipeline {
 
                     docker compose down || true
 
-                    echo "Pulling latest Docker images..."
+                    echo "Pulling latest frontend image..."
 
                     docker pull ${FRONTEND_IMAGE}:latest
+
+                    echo "Pulling latest backend image..."
+
                     docker pull ${BACKEND_IMAGE}:latest
 
                     echo "Starting application..."
@@ -103,9 +120,11 @@ pipeline {
 
                     docker image prune -f
 
-                    echo "Running containers:"
+                    echo "Application containers:"
 
                     docker ps
+
+                    echo "Deployment completed."
                 '''
             }
         }
@@ -115,13 +134,15 @@ pipeline {
 
         success {
             echo '========================================='
-            echo 'DEPLOYMENT SUCCESSFUL!'
+            echo '       DEPLOYMENT SUCCESSFUL!'
             echo '========================================='
+            echo "Frontend: ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+            echo "Backend : ${BACKEND_IMAGE}:${IMAGE_TAG}"
         }
 
         failure {
             echo '========================================='
-            echo 'DEPLOYMENT FAILED!'
+            echo '        DEPLOYMENT FAILED!'
             echo '========================================='
         }
 
