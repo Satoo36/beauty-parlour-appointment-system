@@ -1,11 +1,7 @@
 services:
 
   frontend:
-    build:
-      context: ./client
-      args:
-        VITE_BACKEND_URL: ${VITE_BACKEND_URL}
-        VITE_RAZORPAY_KEY_ID: ${VITE_RAZORPAY_KEY_ID}
+    image: jen567/beauty-parlour-frontend:latest
     container_name: beauty-frontend
     ports:
       - "80:80"
@@ -14,14 +10,14 @@ services:
     restart: unless-stopped
 
   backend:
-    build:
-      context: ./server
+    image: jen567/beauty-parlour-backend:latest
     container_name: beauty-backend
     ports:
       - "5000:5000"
     environment:
       NODE_ENV: production
       PORT: 5000
+
       MONGO_URI: ${MONGO_URI}
       JWT_SECRET: ${JWT_SECRET}
       SESSION_SECRET: ${SESSION_SECRET}
