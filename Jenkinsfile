@@ -3,7 +3,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_REPO = "YOUR_DOCKERHUB_USERNAME/beauty-parlour"
+        DOCKERHUB_REPO = "jen567/beauty-parlour"
 
         FRONTEND_IMAGE = "${DOCKERHUB_REPO}-frontend"
         BACKEND_IMAGE  = "${DOCKERHUB_REPO}-backend"
@@ -64,8 +64,8 @@ pipeline {
                 ]) {
                     sh '''
                         echo "$DOCKER_PASSWORD" | docker login \
-                          -u "$DOCKER_USERNAME" \
-                          --password-stdin
+                            --username "$DOCKER_USERNAME" \
+                            --password-stdin
                     '''
                 }
             }
@@ -85,24 +85,28 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sshagent(['ec2-ssh-key']) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ubuntu@YOUR_EC2_IP << EOF
+                sh '''
+                    echo "Stopping old containers..."
 
-                        cd /opt/beauty-parlour
+                    docker compose down || true
 
-                        docker pull ${FRONTEND_IMAGE}:latest
-                        docker pull ${BACKEND_IMAGE}:latest
+                    echo "Pulling latest Docker images..."
 
-                        docker compose down
+                    docker pull ${FRONTEND_IMAGE}:latest
+                    docker pull ${BACKEND_IMAGE}:latest
 
-                        docker compose up -d
+                    echo "Starting application..."
 
-                        docker image prune -f
+                    docker compose up -d
 
-                        EOF
-                    '''
-                }
+                    echo "Removing unused Docker images..."
+
+                    docker image prune -f
+
+                    echo "Running containers:"
+
+                    docker ps
+                '''
             }
         }
     }
@@ -110,11 +114,15 @@ pipeline {
     post {
 
         success {
-            echo 'Deployment successful!'
+            echo '========================================='
+            echo 'DEPLOYMENT SUCCESSFUL!'
+            echo '========================================='
         }
 
         failure {
-            echo 'Deployment failed!'
+            echo '========================================='
+            echo 'DEPLOYMENT FAILED!'
+            echo '========================================='
         }
 
         always {
