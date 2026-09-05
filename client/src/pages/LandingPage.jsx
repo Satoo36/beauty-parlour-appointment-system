@@ -27,7 +27,7 @@ const LandingPage = () => {
                         </Link>
                         <Link
                             to="/booking"
-                            className="px-8 py-4 bg-rose backdrop-blur-md border border-surface-50/30 text-ink-900 text-lg font-semibold rounded-full hover:bg-surface-50/20 transition-all duration-300 hover:-translate-y-1 transform"
+                            className="px-8 py-4 bg-white backdrop-blur-md border border-surface-50/30 text-rose-500 text-lg font-semibold rounded-full hover:bg-surface-50/20 transition-all duration-300 hover:-translate-y-1 transform"
                         >
                             Book Appointment
                         </Link>
